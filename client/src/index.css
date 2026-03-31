@@ -220,3 +220,22 @@ a {
   margin-bottom: 5px;
   border-radius: 8px;
 }
+
+.album-card {
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.album-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.1);
+}
+.btn {
+  transition: background 0.3s, transform 0.2s;
+}
+.btn:hover {
+  background: #333;
+  transform: translateY(-2px);
+}
+/* Адаптивность */
+@media (max-width: 768px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}

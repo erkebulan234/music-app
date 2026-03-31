@@ -7,6 +7,11 @@ import trackRoutes from "./routes/trackRoutes.js";
 import playlistRoutes from "./routes/playlistRoutes.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+
+
 const app = express();
 
 app.use(cors());

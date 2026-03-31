@@ -3,7 +3,16 @@ import { getAlbumWithRating } from "../models/albumModel.js";
 
 export const fetchAlbums = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM albums ORDER BY id");
+    const result = await pool.query(`
+      SELECT 
+        a.*,
+        ROUND(AVG(r.rating), 1) AS avg_rating,
+        COUNT(r.id) AS review_count
+      FROM albums a
+      LEFT JOIN reviews r ON a.id = r.album_id
+      GROUP BY a.id
+      ORDER BY a.id
+    `);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -34,3 +43,5 @@ export const search = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+

@@ -3,7 +3,7 @@ import { getAlbumWithRating } from "../models/albumModel.js";
 
 export const fetchAlbums = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM albums");
+    const result = await pool.query("SELECT * FROM albums ORDER BY id");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -14,6 +14,9 @@ export const fetchAlbums = async (req, res) => {
 export const fetchAlbum = async (req, res) => {
   try {
     const album = await getAlbumWithRating(req.params.id);
+    if (!album) {
+      return res.status(404).json({ message: "Альбом не найден" });
+    }
     res.json(album);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -31,4 +34,3 @@ export const search = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-console.log("Запрос на альбомы пришёл");

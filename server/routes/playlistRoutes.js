@@ -1,11 +1,5 @@
 import express from "express";
-import {
-  addTrack,
-  createUserPlaylist,
-  fetchPlaylistById,
-  fetchUserPlaylists,
-  removeTrack,
-} from "../controllers/playlistController.js";
+import { addTrack, createUserPlaylist, fetchPlaylistById, fetchUserPlaylists, removeTrack, deleteUserPlaylist } from "../controllers/playlistController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -16,5 +10,6 @@ router.post("/", createUserPlaylist);
 router.get("/:id", fetchPlaylistById);
 router.post("/:id/tracks", addTrack);
 router.delete("/:id/tracks/:trackId", removeTrack);
+router.delete("/:id", deleteUserPlaylist);
 
 export default router;

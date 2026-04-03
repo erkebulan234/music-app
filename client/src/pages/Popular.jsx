@@ -25,11 +25,15 @@ export default function Popular() {
       .finally(() => setLoading(false));
   }, []);
 
-  const sorted = [...albums].sort((a, b) => {
-    if (filter === "rating") return (b.avg_rating || 0) - (a.avg_rating || 0);
-    if (filter === "reviews") return (b.review_count || 0) - (a.review_count || 0);
-    return 0;
-  });
+ const sorted = [...albums].sort((a, b) => {
+  if (filter === "rating") {
+    const ratingDiff = (Number(b.avg_rating) || 0) - (Number(a.avg_rating) || 0);
+    if (ratingDiff !== 0) return ratingDiff;
+    return (Number(b.review_count) || 0) - (Number(a.review_count) || 0);
+  }
+  if (filter === "reviews") return (Number(b.review_count) || 0) - (Number(a.review_count) || 0);
+  return 0;
+ });
 
   return (
     <div className="layout">
@@ -40,7 +44,11 @@ export default function Popular() {
         {/* Hero banner */}
         <div className="popular-hero">
           <div className="popular-hero-inner">
-            <div className="popular-hero-icon">🔥</div>
+            <div className="popular-hero-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2C12 2 7 8 7 13a5 5 0 0 0 10 0c0-2-1-4-2-5 0 0 0 3-2 4-1-2-1-5-1-5s-2 3-2 5a3 3 0 0 0 6 0c0-1.5-.5-2.5-1-3.5C15 10 12 2 12 2z" fill="var(--gold)" opacity="0.9"/>
+              </svg>
+            </div>
             <div>
               <div className="popular-hero-label">Чарты</div>
               <h1 className="popular-hero-title">Популярное</h1>
@@ -76,12 +84,30 @@ export default function Popular() {
             {sorted.map((album, i) => (
               <Link to={`/album/${album.id}`} key={album.id} className="ranked-row">
                 <div className={`ranked-num${i < 3 ? " top" : ""}`}>
-                  {i < 3 ? ["🥇","🥈","🥉"][i] : String(i + 1).padStart(2, "0")}
+                  {i === 0 && (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" fill="#FFD700" opacity="0.15"/>
+                      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#FFD700"/>
+                    </svg>
+                  )}
+                  {i === 1 && (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" fill="#C0C0C0" opacity="0.15"/>
+                      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#C0C0C0"/>
+                    </svg>
+                  )}
+                  {i === 2 && (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" fill="#CD7F32" opacity="0.15"/>
+                      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" fill="#CD7F32"/>
+                    </svg>
+                  )}
+                  {i >= 3 && String(i + 1).padStart(2, "0")}
                 </div>
 
                 <div className="ranked-cover">
                   <img
-                    src={`/covers/${album.id}.jpg`}
+                    src={album.cover_url}
                     alt={album.title}
                     onError={(e) => { e.target.style.display = "none"; }}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}

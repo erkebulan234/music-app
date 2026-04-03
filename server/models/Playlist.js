@@ -20,7 +20,28 @@ export const getUserPlaylists = async (userId) => {
     [userId],
   );
 
-  return result.rows;
+  const playlists = result.rows;
+
+  // Для каждого плейлиста подгружаем до 4 уникальных обложек из albums
+  const withCovers = await Promise.all(
+    playlists.map(async (pl) => {
+      const coversRes = await pool.query(
+        `SELECT DISTINCT a.cover_url
+         FROM albums a
+         JOIN tracks t ON t.album_id = a.id
+         JOIN playlist_tracks pt ON pt.track_id = t.id
+         WHERE pt.playlist_id = $1 AND a.cover_url IS NOT NULL
+         LIMIT 4`,
+        [pl.id],
+      );
+      return {
+        ...pl,
+        tracks: coversRes.rows, // [{cover_url}, ...]
+      };
+    })
+  );
+
+  return withCovers;
 };
 
 export const addTrackToPlaylist = async (playlistId, trackId) => {
@@ -60,14 +81,15 @@ export const getPlaylistById = async (playlistId) => {
     return null;
   }
 
-  const tracksResult = await pool.query(
-    `SELECT t.*
-     FROM tracks t
-     JOIN playlist_tracks pt ON pt.track_id = t.id
-     WHERE pt.playlist_id = $1
-     ORDER BY t.id`,
-    [playlistId],
-  );
+ const tracksResult = await pool.query(
+  `SELECT DISTINCT ON (t.id) t.*, a.cover_url, a.title as album_title
+   FROM tracks t
+   JOIN albums a ON a.id = t.album_id
+   JOIN playlist_tracks pt ON pt.track_id = t.id
+   WHERE pt.playlist_id = $1
+   ORDER BY t.id`,
+  [playlistId],
+ );
 
   return {
     ...playlistResult.rows[0],

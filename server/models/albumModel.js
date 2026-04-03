@@ -12,8 +12,9 @@ export const getAlbumById = async (id) => {
   );
   return res.rows[0];
 };
+
 export const getAlbumWithRating = async (id) => {
-  const res = await pool.query(`
+  const albumRes = await pool.query(`
     SELECT 
       a.*,
       ROUND(AVG(r.rating), 1) as avg_rating,
@@ -24,8 +25,18 @@ export const getAlbumWithRating = async (id) => {
     GROUP BY a.id
   `, [id]);
 
-  return res.rows[0];
+  const album = albumRes.rows[0];
+  if (!album) return null;
+
+  const tracksRes = await pool.query(
+    "SELECT * FROM tracks WHERE album_id = $1 ORDER BY id ASC",
+    [id]
+  );
+  album.tracks = tracksRes.rows;
+
+  return album;
 };
+
 export const searchAlbums = async (query) => {
   const res = await pool.query(
     `SELECT * FROM albums 
@@ -33,4 +44,10 @@ export const searchAlbums = async (query) => {
     [`%${query}%`]
   );
   return res.rows;
+};
+
+export const deleteAlbum = async (id) => {
+  await pool.query("DELETE FROM reviews WHERE album_id = $1", [id]);
+  await pool.query("DELETE FROM tracks WHERE album_id = $1", [id]);
+  await pool.query("DELETE FROM albums WHERE id = $1", [id]);
 };

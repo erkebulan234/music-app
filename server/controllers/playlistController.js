@@ -26,9 +26,10 @@ export const fetchUserPlaylists = async (req, res) => {
     const playlists = await getUserPlaylists(req.user.id);
     res.json(playlists);
   } catch (err) {
+    console.error("fetchUserPlaylists error:", err); // добавь эту строку
     res.status(500).json({ error: err.message });
   }
-};
+}
 
 export const fetchPlaylistById = async (req, res) => {
   try {
@@ -88,6 +89,17 @@ export const removeTrack = async (req, res) => {
     await removeTrackFromPlaylist(req.params.id, req.params.trackId);
     res.status(204).send();
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+import { pool } from "../config/db.js";
+export const deleteUserPlaylist = async (req, res) => {
+  try {
+    await pool.query("DELETE FROM playlist_tracks WHERE playlist_id = $1", [req.params.id]);
+    await pool.query("DELETE FROM playlists WHERE id = $1 AND user_id = $2", [req.params.id, req.user.id]);
+    res.json({ message: "Плейлист удалён" });
+  } catch (err) {
+    console.error("PLAYLISTS ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 };

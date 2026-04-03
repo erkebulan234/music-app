@@ -6,9 +6,7 @@ import albumRoutes from "./routes/albumRoutes.js";
 import trackRoutes from "./routes/trackRoutes.js";
 import playlistRoutes from "./routes/playlistRoutes.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
-
-import path from "path";
-import { fileURLToPath } from "url";
+import favoriteRoutes from "./routes/favoriteRoutes.js";
 
 
 
@@ -26,6 +24,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/albums", albumRoutes);
 app.use("/api/tracks", trackRoutes);
 app.use("/api/playlists", playlistRoutes);
+app.use("/api/favorites", favoriteRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

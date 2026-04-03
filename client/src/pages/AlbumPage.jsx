@@ -8,8 +8,13 @@ import AlbumHero from "../components/AlbumHero";
 import TrackList from "../components/TrackList";
 import ReviewForm from "../components/ReviewForm";
 import ReviewList from "../components/ReviewList";
+import Player from "../components/Player";
+import { isAdmin } from "../utils/auth";
+import { getTracks } from "../services/api";
 
 export default function AlbumPage() {
+  const [currentTrack, setCurrentTrack] = useState(null);
+  const [allTracks, setAllTracks] = useState([]);
   const { id } = useParams();
   const [album, setAlbum] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -31,6 +36,7 @@ export default function AlbumPage() {
   useEffect(() => {
     loadAlbum();
     loadReviews();
+    getTracks(id).then(res => setAllTracks(res.data));
   }, [id]);
 
   if (!album) return (
@@ -45,12 +51,32 @@ export default function AlbumPage() {
     <div className="layout">
       <Topbar />
       <Sidebar />
-      <main className="main-content">
-        <AlbumHero album={album} />
-        <TrackList albumId={id} />
+      <main className="main-content" style={{ paddingBottom: 80 }}>
+        <AlbumHero
+        album={album}
+        onPlay={() => {
+          if (allTracks.length > 0) {
+            setCurrentTrack(allTracks[0]);
+            setAllTracks(allTracks);
+          }
+         }}
+        />
+        <TrackList
+          albumId={id}
+          isAdmin={isAdmin()}
+          currentTrack={currentTrack}
+          onPlay={(track, tracks) => { setCurrentTrack(track); setAllTracks(tracks); }}
+        />
         <ReviewForm albumId={id} onReviewAdded={handleReviewAdded} />
         <ReviewList reviews={reviews} />
       </main>
+      <Player
+        track={currentTrack}
+        tracks={allTracks}
+        album={album}
+        onTrackChange={setCurrentTrack}
+      />
     </div>
   );
 }
+

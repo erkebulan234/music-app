@@ -43,5 +43,29 @@ export const search = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+import { upload } from "../middleware/uploadMiddleware.js";
 
+export const createAlbum = async (req, res) => {
+  const { title, artist, year } = req.body;
+  const coverUrl = req.file ? `/covers/${req.file.filename}` : null;
+  try {
+    const result = await pool.query(
+      "INSERT INTO albums (title, artist, year, cover_url) VALUES ($1, $2, $3, $4) RETURNING *",
+      [title, artist, year, coverUrl]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+import { deleteAlbum } from "../models/albumModel.js";
+
+export const removeAlbum = async (req, res) => {
+  try {
+    await deleteAlbum(req.params.id);
+    res.json({ message: "Альбом удалён" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 

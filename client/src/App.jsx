@@ -10,7 +10,7 @@ import Register from "./pages/Register";
 import Admin from "./pages/Admin";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { isAdmin } from "./utils/auth";
-import PlaylistPage from "./pages/PlayListPage";
+import PlaylistPage from "./pages/PlaylistPage";
 
 function AdminRoute({ children }) {
   if (!isAdmin()) return <Navigate to="/" replace />;

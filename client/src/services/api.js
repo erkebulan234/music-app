@@ -4,7 +4,6 @@ const API = axios.create({
   baseURL: "http://localhost:5000/api"
 });
 
-// Интерцептор ПЕРВЫМ
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -26,8 +25,11 @@ export const getAlbum = (id) => API.get(`/albums/${id}`);
 export const getReviews = (id) => API.get(`/reviews/${id}`);
 export const addReview = (data) => API.post("/reviews", data);
 
+export const getPlaylistById = (id) => API.get(`/playlists/${id}`);
 export const addTrackToPlaylist = (playlistId, trackId) =>
   API.post(`/playlists/${playlistId}/tracks`, { trackId });
+export const removeTrackFromPlaylist = (playlistId, trackId) =>
+  API.delete(`/playlists/${playlistId}/tracks/${trackId}`);
 
 export const deleteAlbum = (id) => API.delete(`/albums/${id}`);
 export const addTrack = (formData) =>
@@ -45,5 +47,3 @@ export const createAlbum = (formData) =>
   API.post("/albums", formData, {
     headers: { "Content-Type": "multipart/form-data" }
   });
-
-export const getPlaylistById = (id) => API.get(`/playlists/${id}`);

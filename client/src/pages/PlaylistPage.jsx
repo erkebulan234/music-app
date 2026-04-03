@@ -1,17 +1,16 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Topbar from "../components/Topbar";
 import Sidebar from "../components/Sidebar";
 import Player from "../components/Player";
-import { getPlaylistById, deletePlaylist, getAlbums } from "../services/api";
-import axios from "axios";
-
-const API = axios.create({ baseURL: "http://localhost:5000/api" });
-API.interceptors.request.use(cfg => {
-  const token = localStorage.getItem("token");
-  if (token) cfg.headers.Authorization = `Bearer ${token}`;
-  return cfg;
-});
+import {
+  getPlaylistById,
+  deletePlaylist,
+  getAlbums,
+  getAlbum,
+  addTrackToPlaylist,
+  removeTrackFromPlaylist,
+} from "../services/api";
 
 // ─── Коллаж обложек ───────────────────────────────────────────────────────────
 function CoverCollage({ tracks }) {
@@ -19,9 +18,7 @@ function CoverCollage({ tracks }) {
     tracks.filter(t => t.cover_url).map(t => [t.cover_url, t])
   ).values()].slice(0, 4);
 
-  const base = {
-    width: 140, height: 140, borderRadius: 16, flexShrink: 0,
-  };
+  const base = { width: 140, height: 140, borderRadius: 16, flexShrink: 0 };
 
   if (covers.length === 0) {
     return (
@@ -32,9 +29,11 @@ function CoverCollage({ tracks }) {
       }}>
         <svg width="56" height="56" viewBox="0 0 24 24" fill="none"
           stroke="var(--gold)" strokeWidth="1.2" strokeLinecap="round">
-          <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
           <line x1="8" y1="18" x2="21" y2="18"/>
-          <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
           <line x1="3" y1="18" x2="3.01" y2="18"/>
         </svg>
       </div>
@@ -80,31 +79,41 @@ function AddTracksModal({ playlistId, existingTrackIds, onClose, onAdded }) {
   useEffect(() => {
     getAlbums()
       .then(res => setAlbums(res.data || []))
+      .catch(e => console.error("Ошибка загрузки альбомов:", e))
       .finally(() => setLoadingAlbums(false));
   }, []);
 
   const openAlbum = async (album) => {
-    setSelectedAlbum(album);
-    setLoadingTracks(true);
-    try {
-      const res = await API.get(`/albums/${album.id}`);
-      setAlbumTracks(res.data.tracks || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingTracks(false);
-    }
-  };
+   console.log("openAlbum вызван, album:", album); // ← самая первая строка
+   setSelectedAlbum(album);
+   setLoadingTracks(true);
+   try {
+     console.log("Запрашиваю:", album.id);
+     const res = await getAlbum(album.id);
+     console.log("Ответ:", res.data);
+     setAlbumTracks(res.data.tracks || []);
+     } catch (e) {
+       console.error("Ошибка загрузки треков альбома:", e);
+     } finally {
+       setLoadingTracks(false);
+     }
+   };
 
-  const addTrack = async (track) => {
+  const handleAddTrack = async (track) => {
+    console.log("Отправляю trackId:", track.id, typeof track.id);
+    console.log("trackId:", track.id, typeof track.id); 
     setAdding(prev => new Set(prev).add(track.id));
     try {
-      await API.post(`/playlists/${playlistId}/tracks`, { track_id: track.id });
+      await addTrackToPlaylist(playlistId, track.id);
       onAdded();
     } catch (e) {
-      console.error(e);
+      console.error("Ошибка добавления трека:", e);
     } finally {
-      setAdding(prev => { const s = new Set(prev); s.delete(track.id); return s; });
+      setAdding(prev => {
+        const s = new Set(prev);
+        s.delete(track.id);
+        return s;
+      });
     }
   };
 
@@ -164,6 +173,7 @@ function AddTracksModal({ playlistId, existingTrackIds, onClose, onAdded }) {
               {selectedAlbum && (
                 <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>
                   {selectedAlbum.artist}
+                  {albumTracks.length > 0 && ` · ${albumTracks.length} треков`}
                 </div>
               )}
             </div>
@@ -205,11 +215,14 @@ function AddTracksModal({ playlistId, existingTrackIds, onClose, onAdded }) {
 
         {/* Content */}
         <div style={{ overflowY: "auto", flex: 1, padding: "12px 24px 20px" }}>
+
           {/* Albums list */}
           {!selectedAlbum && (
             loadingAlbums ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8,
-                color: "var(--text-3)", padding: "20px 0", justifyContent: "center" }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                color: "var(--text-3)", padding: "20px 0", justifyContent: "center"
+              }}>
                 <div className="spinner" /> Загрузка...
               </div>
             ) : filteredAlbums.length === 0 ? (
@@ -247,12 +260,15 @@ function AddTracksModal({ playlistId, existingTrackIds, onClose, onAdded }) {
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: "var(--text-1)", fontWeight: 600, fontSize: 14,
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{
+                        color: "var(--text-1)", fontWeight: 600, fontSize: 14,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                      }}>
                         {album.title}
                       </div>
                       <div style={{ color: "var(--text-3)", fontSize: 12, marginTop: 2 }}>
-                        {album.artist} · {album.tracks_count || 0} треков
+                        {album.artist}
+                        {album.tracks_count != null && ` · ${album.tracks_count} треков`}
                       </div>
                     </div>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -268,8 +284,10 @@ function AddTracksModal({ playlistId, existingTrackIds, onClose, onAdded }) {
           {/* Album tracks */}
           {selectedAlbum && (
             loadingTracks ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8,
-                color: "var(--text-3)", padding: "20px 0", justifyContent: "center" }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 8,
+                color: "var(--text-3)", padding: "20px 0", justifyContent: "center"
+              }}>
                 <div className="spinner" /> Загрузка...
               </div>
             ) : albumTracks.length === 0 ? (
@@ -282,30 +300,35 @@ function AddTracksModal({ playlistId, existingTrackIds, onClose, onAdded }) {
                   const already = existingTrackIds.has(track.id);
                   const isAdding = adding.has(track.id);
                   return (
-                    <div key={track.id} style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      padding: "8px 10px", borderRadius: 10,
-                      background: already ? "rgba(255,255,255,.03)" : "none",
-                      transition: "background .15s"
-                    }}
-                      onMouseEnter={e => !already && (e.currentTarget.style.background = "var(--bg2)")}
-                      onMouseLeave={e => !already && (e.currentTarget.style.background = "none")}
+                    <div
+                      key={track.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        padding: "8px 10px", borderRadius: 10,
+                        background: already ? "rgba(255,255,255,.03)" : "none",
+                        transition: "background .15s"
+                      }}
+                      onMouseEnter={e => { if (!already) e.currentTarget.style.background = "var(--bg2)"; }}
+                      onMouseLeave={e => { if (!already) e.currentTarget.style.background = "none"; }}
                     >
-                      <span style={{ color: "var(--text-3)", fontSize: 12,
-                        width: 22, textAlign: "right", flexShrink: 0 }}>
+                      <span style={{
+                        color: "var(--text-3)", fontSize: 12,
+                        width: 22, textAlign: "right", flexShrink: 0
+                      }}>
                         {String(i + 1).padStart(2, "0")}
                       </span>
                       {track.cover_url ? (
                         <img src={track.cover_url}
                           style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 36, height: 36, borderRadius: 6, background: "var(--bg2)",
-                          flexShrink: 0 }} />
+                        <div style={{ width: 36, height: 36, borderRadius: 6, background: "var(--bg2)", flexShrink: 0 }} />
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: already ? "var(--text-3)" : "var(--text-1)",
+                        <div style={{
+                          color: already ? "var(--text-3)" : "var(--text-1)",
                           fontSize: 14, fontWeight: 500,
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                        }}>
                           {track.title}
                         </div>
                         {track.duration && (
@@ -315,21 +338,25 @@ function AddTracksModal({ playlistId, existingTrackIds, onClose, onAdded }) {
                         )}
                       </div>
                       {already ? (
-                        <span style={{ fontSize: 11, color: "var(--text-3)",
-                          background: "var(--bg2)", borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>
+                        <span style={{
+                          fontSize: 11, color: "var(--text-3)",
+                          background: "var(--bg2)", borderRadius: 6,
+                          padding: "3px 8px", flexShrink: 0
+                        }}>
                           В плейлисте
                         </span>
                       ) : (
                         <button
-                          onClick={() => addTrack(track)}
+                          onClick={() => handleAddTrack(track)}
                           disabled={isAdding}
                           style={{
                             background: isAdding ? "var(--bg2)" : "var(--gold)",
-                            border: "none", borderRadius: 8, cursor: isAdding ? "default" : "pointer",
+                            border: "none", borderRadius: 8,
+                            cursor: isAdding ? "default" : "pointer",
                             color: isAdding ? "var(--text-3)" : "#1a1408",
                             padding: "5px 12px", fontSize: 12, fontWeight: 700,
                             flexShrink: 0, transition: "all .15s",
-                            opacity: isAdding ? .7 : 1
+                            opacity: isAdding ? 0.7 : 1
                           }}
                         >
                           {isAdding ? "..." : "+ Добавить"}
@@ -359,11 +386,13 @@ export default function PlaylistPage() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   const load = () => {
+    setLoading(true);
     getPlaylistById(id)
       .then(res => {
         setPlaylist(res.data);
         setAllTracks(res.data.tracks || []);
       })
+      .catch(e => console.error("Ошибка загрузки плейлиста:", e))
       .finally(() => setLoading(false));
   };
 
@@ -378,14 +407,13 @@ export default function PlaylistPage() {
   const handleRemoveTrack = async (trackId) => {
     if (!confirm("Убрать трек из плейлиста?")) return;
     try {
-      await API.delete(`/playlists/${id}/tracks/${trackId}`);
+      await removeTrackFromPlaylist(id, trackId);
       load();
     } catch (e) {
-      console.error(e);
+      console.error("Ошибка удаления трека:", e);
     }
   };
 
-  // Shuffle: перемешивает список треков для плеера
   const handleShuffle = () => {
     if (!playlist) return;
     const tracks = playlist.tracks || [];
@@ -401,7 +429,6 @@ export default function PlaylistPage() {
     }
   };
 
-  // Слушать по порядку
   const handlePlay = () => {
     const tracks = playlist?.tracks || [];
     if (tracks.length === 0) return;
@@ -435,7 +462,7 @@ export default function PlaylistPage() {
             <h1 className="hero-title">{playlist.name}</h1>
             <div className="hero-artist">{tracks.length} треков</div>
             <div className="hero-actions" style={{ flexWrap: "wrap", gap: 8 }}>
-              {/* Слушать */}
+
               {tracks.length > 0 && (
                 <button className="btn-play" onClick={handlePlay}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -445,7 +472,6 @@ export default function PlaylistPage() {
                 </button>
               )}
 
-              {/* Shuffle */}
               {tracks.length > 0 && (
                 <button
                   onClick={handleShuffle}
@@ -460,7 +486,6 @@ export default function PlaylistPage() {
                   onMouseEnter={e => { if (!isShuffled) e.currentTarget.style.borderColor = "var(--gold)"; }}
                   onMouseLeave={e => { if (!isShuffled) e.currentTarget.style.borderColor = "var(--border)"; }}
                 >
-                  {/* Shuffle icon */}
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="16 3 21 3 21 8"/>
@@ -473,7 +498,6 @@ export default function PlaylistPage() {
                 </button>
               )}
 
-              {/* Добавить треки */}
               <button
                 onClick={() => setShowAddModal(true)}
                 style={{
@@ -484,8 +508,14 @@ export default function PlaylistPage() {
                   border: "1.5px solid var(--border)",
                   color: "var(--text-2)",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--gold)"; e.currentTarget.style.color = "var(--gold)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-2)"; }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = "var(--gold)";
+                  e.currentTarget.style.color = "var(--gold)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.color = "var(--text-2)";
+                }}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -495,9 +525,11 @@ export default function PlaylistPage() {
                 Добавить треки
               </button>
 
-              {/* Удалить плейлист */}
-              <button className="btn-sec" onClick={handleDelete}
-                style={{ color: "var(--red)", borderColor: "var(--red)" }}>
+              <button
+                className="btn-sec"
+                onClick={handleDelete}
+                style={{ color: "var(--red)", borderColor: "var(--red)" }}
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <polyline points="3 6 5 6 21 6"/>
@@ -517,8 +549,10 @@ export default function PlaylistPage() {
             <span className="tracklist-count">{tracks.length} треков</span>
           </div>
           {tracks.length === 0 ? (
-            <div className="reviews-empty" style={{ display: "flex", flexDirection: "column",
-              alignItems: "center", gap: 12, padding: "32px 0" }}>
+            <div className="reviews-empty" style={{
+              display: "flex", flexDirection: "column",
+              alignItems: "center", gap: 12, padding: "32px 0"
+            }}>
               <div style={{ color: "var(--text-3)", textAlign: "center" }}>
                 В плейлисте пока нет треков
               </div>
@@ -545,7 +579,6 @@ export default function PlaylistPage() {
                 <span className="track-num-text">{String(i + 1).padStart(2, "0")}</span>
                 <div className="playing-bars"><span/><span/><span/></div>
               </div>
-              {/* Обложка трека */}
               {track.cover_url ? (
                 <img src={track.cover_url}
                   style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
@@ -562,9 +595,11 @@ export default function PlaylistPage() {
               </div>
               <span className="track-dur">{track.duration}</span>
               <button
-                onClick={(e) => { e.stopPropagation(); handleRemoveTrack(track.id); }}
-                style={{ background: "none", border: "none", cursor: "pointer",
-                  color: "var(--text-3)", padding: 4, transition: "color .15s" }}
+                onClick={e => { e.stopPropagation(); handleRemoveTrack(track.id); }}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--text-3)", padding: 4, transition: "color .15s"
+                }}
                 title="Убрать из плейлиста"
                 onMouseEnter={e => e.currentTarget.style.color = "var(--red)"}
                 onMouseLeave={e => e.currentTarget.style.color = "var(--text-3)"}
@@ -583,17 +618,19 @@ export default function PlaylistPage() {
       <Player
         track={currentTrack}
         tracks={allTracks}
-        album={currentTrack ? { cover_url: currentTrack.cover_url, title: currentTrack.album_title, artist: currentTrack.artist } : null}
+        album={currentTrack
+          ? { cover_url: currentTrack.cover_url, title: currentTrack.album_title, artist: currentTrack.artist }
+          : null
+        }
         onTrackChange={setCurrentTrack}
       />
 
-      {/* Модалка добавления треков */}
       {showAddModal && (
         <AddTracksModal
           playlistId={id}
           existingTrackIds={existingTrackIds}
           onClose={() => setShowAddModal(false)}
-          onAdded={() => { load(); }}
+          onAdded={load}
         />
       )}
     </div>
